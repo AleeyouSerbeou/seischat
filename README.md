@@ -57,7 +57,7 @@ seischat/
 └── README.md
 ```
 
-The `frontend/` and `backend/` directories are intentionally empty until implementation work begins.
+The `frontend/` directory contains the Vite React application and shared chatroom UI. The `backend/` implementation is not created yet.
 
 ## Development Setup
 
@@ -97,7 +97,7 @@ The backend host, port, and migration workflow are **TODO: Team Decision Require
 
 ### Run the frontend
 
-The frontend implementation and package manifest are not created yet. Once they exist, the expected local workflow is:
+The frontend is a Vite React application with Tailwind CSS. Run it from the frontend directory:
 
 ```bash
 cd frontend
@@ -105,7 +105,7 @@ npm install
 npm run dev
 ```
 
-The frontend development command and port are **TODO: Team Decision Required** until the project scaffold is added.
+Use `npm run build` to create a production build. The Vite development server port is selected by Vite unless configured otherwise.
 
 ## Environment Variables
 
