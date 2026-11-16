@@ -57,9 +57,7 @@ seischat/
 └── README.md
 ```
 
-The `frontend/` contains the current React application and `backend/` contains
-the Phase 1 FastAPI foundation. See the [backend guide](backend/README.md) for
-setup, testing, and migration instructions.
+The `frontend/` directory contains the Vite React application and shared chatroom UI. The `backend/` implementation is not created yet.
 
 ## Development Setup
 
@@ -104,15 +102,15 @@ Run backend tests from `backend/` with `pytest`.
 
 ### Run the frontend
 
+The frontend is a Vite React application with Tailwind CSS. Run it from the frontend directory:
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Vite serves the frontend at `http://localhost:5173` by default. The frontend
-API client reads `VITE_API_BASE_URL` and sends cookie credentials; configure it
-to point to the backend URL when connecting the authentication phase.
+Use `npm run build` to create a production build. The Vite development server port is selected by Vite unless configured otherwise.
 
 ## Environment Variables
 
