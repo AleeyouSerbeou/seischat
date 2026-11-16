@@ -57,7 +57,9 @@ seischat/
 └── README.md
 ```
 
-The `frontend/` directory contains the Vite React application and shared chatroom UI. The `backend/` implementation is not created yet.
+The `frontend/` directory contains the Vite React application and shared
+chatroom UI. The `backend/` directory contains the implemented FastAPI API,
+database models, migrations, authentication, messaging, and WebSocket chat.
 
 ## Development Setup
 
@@ -78,7 +80,7 @@ cd seischat
 cp .env.example .env
 ```
 
-Do not commit `.env`. Replace every placeholder with local development values. The `DATABASE_URL` must point to a PostgreSQL database, and `SECRET_KEY` must be a locally generated secret.
+Do not commit `.env`. Replace every placeholder with local development values. The `DATABASE_URL` must point to a PostgreSQL database.
 
 ### Run the backend
 
@@ -94,9 +96,12 @@ Copy-Item .env.example .env
 uvicorn app.main:app --reload
 ```
 
-The API is available at `http://127.0.0.1:8000`; Phase 1 exposes `GET /health`.
-There are no models or migration revisions yet, so Alembic should be used
-only after a later phase adds the first model.
+The API is available at `http://127.0.0.1:8000`. Apply the initial schema
+before using authenticated endpoints:
+
+```bash
+alembic upgrade head
+```
 
 Run backend tests from `backend/` with `pytest`.
 
@@ -117,11 +122,12 @@ Use `npm run build` to create a production build. The Vite development server po
 Copy `.env.example` to `.env` and set:
 
 - `DATABASE_URL`: PostgreSQL connection URL.
-- `SECRET_KEY`: secret used by the backend for authentication-related signing or encryption.
-- `SESSION_EXPIRE_MINUTES`: session lifetime in minutes.
+- `SESSION_TTL_MINUTES`: session lifetime in minutes.
 - `FRONTEND_ORIGIN`: allowed frontend origin for local development and CORS.
+- `CSRF_SECURE`: set `true` when serving over HTTPS.
 
-Authentication uses server-side sessions in Secure, HttpOnly cookies, with Argon2id password hashing and CSRF protection. See [the API contract](docs/api-contract.md) and [database design](docs/database-design.md).
+Authentication uses server-side sessions in HttpOnly cookies, PBKDF2-SHA256
+password hashing, and double-submit CSRF protection. See [the API contract](docs/api-contract.md) and [database design](docs/database-design.md).
 
 ## Documentation
 
