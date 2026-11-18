@@ -23,13 +23,14 @@ def user_response(user: User) -> UserResponse:
 def set_auth_cookies(response: Response, session_token: str, csrf_token: str) -> None:
     settings = get_settings()
     secure = settings.csrf_secure or settings.app_environment == "production"
+    samesite = "none" if secure else "lax"
     response.set_cookie(
         settings.session_cookie_name, session_token, httponly=True, secure=secure,
-        samesite="lax", path="/", max_age=settings.session_ttl_minutes * 60,
+        samesite=samesite, path="/", max_age=settings.session_ttl_minutes * 60,
     )
     response.set_cookie(
         settings.csrf_cookie_name, csrf_token, httponly=False, secure=secure,
-        samesite="lax", path="/", max_age=settings.session_ttl_minutes * 60,
+        samesite=samesite, path="/", max_age=settings.session_ttl_minutes * 60,
     )
 
 
@@ -38,9 +39,10 @@ def csrf(response: Response) -> dict[str, str]:
     token = new_csrf_token()
     settings = get_settings()
     secure = settings.csrf_secure or settings.app_environment == "production"
+    samesite = "none" if secure else "lax"
     response.set_cookie(
         settings.csrf_cookie_name, token, httponly=False, secure=secure,
-        samesite="lax", path="/", max_age=settings.session_ttl_minutes * 60,
+        samesite=samesite, path="/", max_age=settings.session_ttl_minutes * 60,
     )
     return {"csrf_token": token}
 
@@ -108,5 +110,7 @@ def logout(
     if session:
         session.revoked_at = datetime.now(timezone.utc)
         db.commit()
-    response.delete_cookie(settings.session_cookie_name, path="/")
-    response.delete_cookie(settings.csrf_cookie_name, path="/")
+    secure = settings.csrf_secure or settings.app_environment == "production"
+    samesite = "none" if secure else "lax"
+    response.delete_cookie(settings.session_cookie_name, path="/", samesite=samesite, secure=secure)
+    response.delete_cookie(settings.csrf_cookie_name, path="/", samesite=samesite, secure=secure)
