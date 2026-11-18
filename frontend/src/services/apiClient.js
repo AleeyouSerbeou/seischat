@@ -71,6 +71,14 @@ export function createApiClient({
 
     const requestHeaders = new Headers(headers)
     requestHeaders.set('Accept', 'application/json')
+    const token =
+      typeof window !== 'undefined'
+        ? window.sessionStorage?.getItem('seischat_token') ||
+          window.localStorage?.getItem('seischat_token')
+        : null
+    if (token && !requestHeaders.has('Authorization')) {
+      requestHeaders.set('Authorization', `Bearer ${token}`)
+    }
     if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) {
       requestHeaders.set('X-CSRF-Token', await getCsrfToken(apiBaseUrl))
     }
@@ -98,10 +106,18 @@ export function createApiClient({
     }
 
     if (response.status === 204) {
+      if (typeof window !== 'undefined' && path.includes('/logout')) {
+        window.sessionStorage?.removeItem('seischat_token')
+        window.localStorage?.removeItem('seischat_token')
+      }
       return undefined
     }
 
     if (!response.ok) {
+      if (typeof window !== 'undefined' && response.status === 401) {
+        window.sessionStorage?.removeItem('seischat_token')
+        window.localStorage?.removeItem('seischat_token')
+      }
       let payload
       try {
         payload = await response.json()
@@ -120,7 +136,12 @@ export function createApiClient({
     }
 
     try {
-      return await response.json()
+      const data = await response.json()
+      if (typeof window !== 'undefined' && data?.token) {
+        window.sessionStorage?.setItem('seischat_token', data.token)
+        window.localStorage?.setItem('seischat_token', data.token)
+      }
+      return data
     } catch (cause) {
       throw new ApiError('The server returned an invalid JSON response.', {
         status: response.status,

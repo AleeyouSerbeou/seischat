@@ -56,6 +56,8 @@ connection_manager = ConnectionManager()
 def authenticate_websocket(websocket: WebSocket) -> User | None:
     raw_token = websocket.cookies.get(get_settings().session_cookie_name)
     if not raw_token:
+        raw_token = websocket.query_params.get("token")
+    if not raw_token:
         return None
     with SessionLocal() as db:
         session = db.scalar(
