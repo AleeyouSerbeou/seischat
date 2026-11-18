@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables or .env."""
 
+    port: int = 8000
     database_url: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/seischat"
     )

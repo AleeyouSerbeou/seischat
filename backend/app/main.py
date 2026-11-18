@@ -36,3 +36,11 @@ app.include_router(auth_router)
 app.include_router(messages_router)
 app.include_router(users_router)
 app.add_api_websocket_route("/ws/chat", chat_socket)
+
+if __name__ == "__main__":
+    import os
+    import uvicorn
+
+    port = int(os.environ.get("PORT", settings.port))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
+
