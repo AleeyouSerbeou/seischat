@@ -4,12 +4,13 @@ import MessageList from "./MessageList";
 import OnlineUsers from "./OnlineUsers";
 import ProfileModal from "./ProfileModal";
 import useChat from "../hooks/useChat";
+import { useAuth } from "../context/AuthContext";
 
 function Chatroom() {
-  const [currentUser, setCurrentUser] = useState({
-    name: "Aliyu",
-    handle: "aliyu",
-  });
+  const { user, logout } = useAuth();
+  const currentUserName = user?.username || "You";
+  const currentUserHandle = user?.username || "you";
+
   const {
     messages,
     onlineUsers,
@@ -43,13 +44,8 @@ function Chatroom() {
         {isSidebarOpen && (
           <OnlineUsers
             onlineUsers={onlineUsers}
-            currentUserName={currentUser.name}
-            onUpdateName={(name) =>
-              setCurrentUser({
-                name,
-                handle: name.trim().toLowerCase().replace(/\s+/g, "_"),
-              })
-            }
+            currentUserName={currentUserName}
+            onUpdateName={() => {}}
             onSelectPeer={(peer) => {
               setSelectedPeer(peer);
               setIsSidebarOpen(false);
@@ -102,7 +98,14 @@ function Chatroom() {
                   : "bg-zinc-600"
               }`}
             />
-            {isConnected ? "Connected" : "Disconnected"}
+            <span>{isConnected ? "Connected" : "Disconnected"}</span>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="ml-2 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800 hover:text-white transition-colors"
+            >
+              Sign out
+            </button>
           </div>
         </header>
 
@@ -119,8 +122,8 @@ function Chatroom() {
           messages={messages}
           onReply={setReplyState}
           onDelete={deleteMessage}
-          currentUserName={currentUser.name}
-          currentUserHandle={currentUser.handle}
+          currentUserName={currentUserName}
+          currentUserHandle={currentUserHandle}
           onUserClick={(author) =>
             setSelectedPeer(
               typeof author === "string" ? { name: author } : author,

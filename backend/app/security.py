@@ -5,14 +5,25 @@ import hashlib
 import hmac
 import secrets
 
+import argon2
+from argon2.exceptions import VerificationError
+
+_hasher = argon2.PasswordHasher()
+
 
 def hash_password(password: str) -> str:
-    salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 310_000)
-    return f"pbkdf2_sha256$310000${base64.urlsafe_b64encode(salt).decode()}${base64.urlsafe_b64encode(digest).decode()}"
+    """Hash a plaintext password using Argon2id."""
+    return _hasher.hash(password)
 
 
 def verify_password(password: str, encoded: str) -> bool:
+    """Verify a plaintext password against an Argon2id or legacy PBKDF2 hash."""
+    if encoded.startswith("$argon2"):
+        try:
+            return _hasher.verify(encoded, password)
+        except (VerificationError, Exception):
+            return False
+
     try:
         algorithm, rounds, salt, expected = encoded.split("$")
         if algorithm != "pbkdf2_sha256":

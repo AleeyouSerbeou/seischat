@@ -26,7 +26,7 @@ function getErrorDetails(payload, response) {
 }
 
 export function createApiClient({
-  baseUrl = import.meta.env?.VITE_API_BASE_URL,
+  baseUrl = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000',
   fetchImpl = (...args) => globalThis.fetch(...args),
 } = {}) {
   async function getCsrfToken(apiBaseUrl) {

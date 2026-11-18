@@ -4,14 +4,14 @@ const DEFAULT_API_BASE_URL = "http://localhost:8000";
 const DEFAULT_CHAT_WS_URL = "ws://localhost:8000/ws/chat";
 
 function getApiBaseUrl() {
-  return (import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).replace(
+  return (import.meta.env?.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).replace(
     /\/$/,
     "",
   );
 }
 
 function getChatSocketUrl() {
-  return import.meta.env.VITE_CHAT_WS_URL ?? DEFAULT_CHAT_WS_URL;
+  return import.meta.env?.VITE_CHAT_WS_URL ?? DEFAULT_CHAT_WS_URL;
 }
 
 function getErrorMessage(error) {
@@ -90,13 +90,33 @@ function useChat() {
   }, []);
 
   const deleteMessage = useCallback(
-    async (messageOrId, csrfHeaders) => {
+    async (messageOrId, explicitCsrfHeaders) => {
       const messageId =
         typeof messageOrId === "string" ? messageOrId : messageOrId?.id;
       if (!messageId) {
         setError("A message ID is required to delete a message.");
         return false;
       }
+
+      let csrfHeaders = explicitCsrfHeaders;
+      if (!csrfHeaders || Object.keys(csrfHeaders).length === 0) {
+        try {
+          const csrfRes = await fetch(`${getApiBaseUrl()}/api/auth/csrf`, {
+            method: "GET",
+            credentials: "include",
+            headers: { Accept: "application/json" },
+          });
+          if (csrfRes.ok) {
+            const data = await csrfRes.json();
+            if (data?.csrf_token) {
+              csrfHeaders = { "X-CSRF-Token": data.csrf_token };
+            }
+          }
+        } catch {
+          // Handled below
+        }
+      }
+
       if (!csrfHeaders || Object.keys(csrfHeaders).length === 0) {
         setError("Message deletion requires the agreed CSRF protection headers.");
         return false;
@@ -132,26 +152,12 @@ function useChat() {
   );
 
   useEffect(() => {
+    let isDisposed = false;
+    let reconnectTimeout = null;
+    let socket = null;
     const controller = new AbortController();
-    const socket = new WebSocket(getChatSocketUrl());
-    socketRef.current = socket;
 
-    socket.onopen = () => {
-      setIsConnected(true);
-      setError(null);
-    };
-
-    socket.onclose = () => {
-      setIsConnected(false);
-      if (socketRef.current === socket) socketRef.current = null;
-    };
-
-    socket.onerror = () => {
-      setIsConnected(false);
-      setError("Unable to connect to the chat server.");
-    };
-
-    socket.onmessage = (event) => {
+    function handleSocketMessage(event) {
       let messageEvent;
       try {
         messageEvent = JSON.parse(event.data);
@@ -194,7 +200,39 @@ function useChat() {
       } else if (eventName === "error") {
         setError(payload?.message ?? "The chat server reported an error.");
       }
-    };
+    }
+
+    function connectSocket() {
+      if (isDisposed) return;
+      socket = new WebSocket(getChatSocketUrl());
+      socketRef.current = socket;
+
+      socket.onopen = () => {
+        if (isDisposed) return;
+        setIsConnected(true);
+        setError(null);
+      };
+
+      socket.onclose = (event) => {
+        if (isDisposed) return;
+        setIsConnected(false);
+        if (socketRef.current === socket) socketRef.current = null;
+        // Do not auto-reconnect on auth rejection (1008)
+        if (event.code !== 1008 && !isDisposed) {
+          reconnectTimeout = window.setTimeout(connectSocket, 2000);
+        }
+      };
+
+      socket.onerror = () => {
+        if (isDisposed) return;
+        setIsConnected(false);
+        setError("Unable to connect to the chat server.");
+      };
+
+      socket.onmessage = handleSocketMessage;
+    }
+
+    connectSocket();
 
     Promise.resolve()
       .then(() => {
@@ -214,12 +252,16 @@ function useChat() {
       });
 
     return () => {
+      isDisposed = true;
       controller.abort();
-      socket.onopen = null;
-      socket.onclose = null;
-      socket.onerror = null;
-      socket.onmessage = null;
-      socket.close();
+      if (reconnectTimeout) window.clearTimeout(reconnectTimeout);
+      if (socket) {
+        socket.onopen = null;
+        socket.onclose = null;
+        socket.onerror = null;
+        socket.onmessage = null;
+        socket.close();
+      }
       if (socketRef.current === socket) socketRef.current = null;
       window.clearTimeout(typingTimerRef.current);
     };
