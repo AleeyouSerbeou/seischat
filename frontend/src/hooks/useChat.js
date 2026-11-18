@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const DEFAULT_API_BASE_URL = "http://localhost:8000";
-const DEFAULT_CHAT_WS_URL = "ws://localhost:8000/ws/chat";
 
 function getApiBaseUrl() {
   return (import.meta.env?.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).replace(
@@ -11,7 +10,31 @@ function getApiBaseUrl() {
 }
 
 function getChatSocketUrl() {
-  return import.meta.env?.VITE_CHAT_WS_URL ?? DEFAULT_CHAT_WS_URL;
+  const explicitWsUrl = import.meta.env?.VITE_CHAT_WS_URL?.trim();
+  if (explicitWsUrl) {
+    let url = explicitWsUrl
+      .replace(/^http:\/\//i, "ws://")
+      .replace(/^https:\/\//i, "wss://");
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      url.startsWith("ws://")
+    ) {
+      url = url.replace(/^ws:\/\//i, "wss://");
+    }
+    if (!url.includes("/ws/chat")) {
+      url = url.replace(/\/+$/, "") + "/ws/chat";
+    }
+    return url;
+  }
+
+  const apiBase = getApiBaseUrl();
+  const isHttps =
+    apiBase.startsWith("https:") ||
+    (typeof window !== "undefined" && window.location.protocol === "https:");
+  const wsProtocol = isHttps ? "wss:" : "ws:";
+  const host = apiBase.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  return `${wsProtocol}//${host}/ws/chat`;
 }
 
 function getErrorMessage(error) {
