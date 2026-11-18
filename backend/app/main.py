@@ -18,9 +18,15 @@ app = FastAPI(title="SeisChat API")
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 
+cors_origins = {settings.frontend_origin}
+if "localhost" in settings.frontend_origin:
+    cors_origins.add(settings.frontend_origin.replace("localhost", "127.0.0.1"))
+elif "127.0.0.1" in settings.frontend_origin:
+    cors_origins.add(settings.frontend_origin.replace("127.0.0.1", "localhost"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_origin],
+    allow_origins=list(cors_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

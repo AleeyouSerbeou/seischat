@@ -163,25 +163,41 @@ function MessageList({
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => onReply(activeMessage)}
+                onClick={() => {
+                  onReply(activeMessage);
+                  setContextMenu(null);
+                  setActiveMessageId(null);
+                }}
                 className="w-full px-4 py-2 text-left text-sm text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-blue-400"
               >
                 Reply
               </button>
-              {(activeMessage.username?.toLowerCase() === "you" ||
-                activeMessage.username?.toLowerCase() ===
-                  currentUserName?.toLowerCase() ||
-                activeMessage.handle?.toLowerCase() ===
-                  currentUserHandle?.toLowerCase()) && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => onDelete(activeMessage)}
-                  className="w-full px-4 py-2 text-left text-sm text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-blue-400"
-                >
-                  Delete
-                </button>
-              )}
+              {(() => {
+                const activeAuthor = activeMessage.author ?? activeMessage.user;
+                const activeAuthorName =
+                  (typeof activeAuthor === "string"
+                    ? activeAuthor
+                    : activeAuthor?.name ?? activeAuthor?.username) ?? activeMessage.username;
+                const isOwned =
+                  activeMessage.username?.toLowerCase() === "you" ||
+                  activeAuthor?.id === "current-user" ||
+                  activeAuthorName?.toLowerCase() === currentUserName?.toLowerCase() ||
+                  activeMessage.handle?.toLowerCase() === currentUserHandle?.toLowerCase();
+                return isOwned ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onDelete(activeMessage);
+                      setContextMenu(null);
+                      setActiveMessageId(null);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-red-400 transition-colors hover:bg-zinc-800 hover:text-red-300"
+                  >
+                    Delete
+                  </button>
+                ) : null;
+              })()}
             </div>
           </div>
         )}

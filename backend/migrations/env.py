@@ -10,7 +10,10 @@ from app.database.base import Base
 import app.models
 
 config = context.config
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+db_url = get_settings().database_url
+# Use direct connection for migrations when pooled connection is configured
+migration_url = db_url.replace("-pooler.", ".")
+config.set_main_option("sqlalchemy.url", migration_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -22,7 +25,7 @@ def run_migrations_offline() -> None:
     """Run migrations without creating a database connection."""
 
     context.configure(
-        url=get_settings().database_url,
+        url=migration_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
