@@ -24,6 +24,10 @@ def get_current_user(
     settings = get_settings()
     raw_token = request.cookies.get(settings.session_cookie_name)
     if not raw_token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            raw_token = auth_header[7:].strip()
+    if not raw_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthenticated")
     session = db.scalar(
         select(UserSession)

@@ -25,6 +25,15 @@ function getChatSocketUrl() {
     if (!url.includes("/ws/chat")) {
       url = url.replace(/\/+$/, "") + "/ws/chat";
     }
+    const token =
+      typeof window !== "undefined"
+        ? window.sessionStorage?.getItem("seischat_token") ||
+          window.localStorage?.getItem("seischat_token")
+        : null;
+    if (token && !url.includes("token=")) {
+      const sep = url.includes("?") ? "&" : "?";
+      url = `${url}${sep}token=${encodeURIComponent(token)}`;
+    }
     return url;
   }
 
@@ -34,7 +43,17 @@ function getChatSocketUrl() {
     (typeof window !== "undefined" && window.location.protocol === "https:");
   const wsProtocol = isHttps ? "wss:" : "ws:";
   const host = apiBase.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-  return `${wsProtocol}//${host}/ws/chat`;
+  let finalUrl = `${wsProtocol}//${host}/ws/chat`;
+
+  const token =
+    typeof window !== "undefined"
+      ? window.sessionStorage?.getItem("seischat_token") ||
+        window.localStorage?.getItem("seischat_token")
+      : null;
+  if (token && !finalUrl.includes("token=")) {
+    finalUrl += `?token=${encodeURIComponent(token)}`;
+  }
+  return finalUrl;
 }
 
 function getErrorMessage(error) {

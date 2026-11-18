@@ -1,5 +1,6 @@
 """Authentication and CSRF endpoints."""
 
+import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -16,13 +17,24 @@ from app.security import hash_password, new_csrf_token, new_token, token_hash, v
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+def is_cookie_secure() -> bool:
+    settings = get_settings()
+    return bool(
+        settings.csrf_secure
+        or settings.app_environment == "production"
+        or os.environ.get("RENDER")
+        or "onrender.com" in settings.frontend_origin
+        or settings.frontend_origin.startswith("https://")
+    )
+
+
 def user_response(user: User) -> UserResponse:
     return UserResponse.model_validate(user, from_attributes=True)
 
 
 def set_auth_cookies(response: Response, session_token: str, csrf_token: str) -> None:
     settings = get_settings()
-    secure = settings.csrf_secure or settings.app_environment == "production"
+    secure = is_cookie_secure()
     samesite = "none" if secure else "lax"
     response.set_cookie(
         settings.session_cookie_name, session_token, httponly=True, secure=secure,
@@ -38,7 +50,7 @@ def set_auth_cookies(response: Response, session_token: str, csrf_token: str) ->
 def csrf(response: Response) -> dict[str, str]:
     token = new_csrf_token()
     settings = get_settings()
-    secure = settings.csrf_secure or settings.app_environment == "production"
+    secure = is_cookie_secure()
     samesite = "none" if secure else "lax"
     response.set_cookie(
         settings.csrf_cookie_name, token, httponly=False, secure=secure,
@@ -84,7 +96,7 @@ def login(
     db.add(UserSession(user_id=user.id, token_hash=token_hash(raw_token), expires_at=expires_at))
     db.commit()
     set_auth_cookies(response, raw_token, new_csrf_token())
-    return LoginResponse(user=user_response(user), expires_at=expires_at)
+    return LoginResponse(user=user_response(user), expires_at=expires_at, token=raw_token)
 
 
 @router.get("/me", response_model=UserEnvelope)
@@ -102,6 +114,10 @@ def logout(
 ) -> None:
     settings = get_settings()
     raw_token = request.cookies.get(settings.session_cookie_name)
+    if not raw_token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            raw_token = auth_header[7:].strip()
     session = db.scalar(
         select(UserSession).where(UserSession.user_id == user.id).where(
             UserSession.token_hash == token_hash(raw_token or "")
@@ -110,7 +126,7 @@ def logout(
     if session:
         session.revoked_at = datetime.now(timezone.utc)
         db.commit()
-    secure = settings.csrf_secure or settings.app_environment == "production"
+    secure = is_cookie_secure()
     samesite = "none" if secure else "lax"
     response.delete_cookie(settings.session_cookie_name, path="/", samesite=samesite, secure=secure)
     response.delete_cookie(settings.csrf_cookie_name, path="/", samesite=samesite, secure=secure)

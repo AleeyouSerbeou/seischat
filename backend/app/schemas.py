@@ -33,6 +33,7 @@ class UserEnvelope(BaseModel):
 
 class LoginResponse(UserEnvelope):
     expires_at: datetime
+    token: str | None = None
 
 
 class MessageResponse(BaseModel):
