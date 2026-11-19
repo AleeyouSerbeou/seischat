@@ -18,11 +18,17 @@ app = FastAPI(title="SeisChat API")
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 
-cors_origins = {settings.frontend_origin}
-if "localhost" in settings.frontend_origin:
-    cors_origins.add(settings.frontend_origin.replace("localhost", "127.0.0.1"))
-elif "127.0.0.1" in settings.frontend_origin:
-    cors_origins.add(settings.frontend_origin.replace("127.0.0.1", "localhost"))
+cors_origins = set()
+for candidate in [
+    settings.frontend_origin,
+    "https://seischat-web.onrender.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]:
+    if candidate:
+        clean = candidate.rstrip("/")
+        cors_origins.add(clean)
+        cors_origins.add(f"{clean}/")
 
 app.add_middleware(
     CORSMiddleware,
