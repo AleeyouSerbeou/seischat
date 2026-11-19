@@ -104,6 +104,17 @@ def me(user: User = Depends(get_current_user)) -> UserEnvelope:
     return UserEnvelope(user=user_response(user))
 
 
+@router.post("/ws-ticket")
+def create_websocket_ticket(
+    _: None = Depends(require_csrf),
+    user: User = Depends(get_current_user),
+) -> dict[str, str]:
+    from app.websocket_tickets import ws_ticket_manager
+
+    ticket = ws_ticket_manager.create_ticket(user.id)
+    return {"ticket": ticket}
+
+
 @router.post("/logout", status_code=204)
 def logout(
     request: Request,

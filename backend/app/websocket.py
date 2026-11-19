@@ -54,20 +54,41 @@ connection_manager = ConnectionManager()
 
 
 def authenticate_websocket(websocket: WebSocket) -> User | None:
+    # 1. Primary: Secure HttpOnly session cookie
     raw_token = websocket.cookies.get(get_settings().session_cookie_name)
-    if not raw_token:
-        raw_token = websocket.query_params.get("token")
-    if not raw_token:
-        return None
-    with SessionLocal() as db:
-        session = db.scalar(
-            select(UserSession)
-            .where(UserSession.token_hash == token_hash(raw_token))
-            .where(UserSession.revoked_at.is_(None))
-        )
-        if not session or is_expired(session.expires_at):
-            return None
-        return session.user
+    if raw_token:
+        with SessionLocal() as db:
+            session = db.scalar(
+                select(UserSession)
+                .where(UserSession.token_hash == token_hash(raw_token))
+                .where(UserSession.revoked_at.is_(None))
+            )
+            if session and not is_expired(session.expires_at):
+                return session.user
+
+    # 2. Secondary: Short-lived, single-use WebSocket ticket (prevents URL token leakage)
+    raw_ticket = websocket.query_params.get("ticket")
+    if raw_ticket:
+        from app.websocket_tickets import ws_ticket_manager
+
+        user_id = ws_ticket_manager.consume_ticket(raw_ticket)
+        if user_id:
+            with SessionLocal() as db:
+                return db.scalar(select(User).where(User.id == user_id))
+
+    # 3. Fallback: Session token query parameter (if client cannot obtain ticket)
+    raw_token = websocket.query_params.get("token")
+    if raw_token:
+        with SessionLocal() as db:
+            session = db.scalar(
+                select(UserSession)
+                .where(UserSession.token_hash == token_hash(raw_token))
+                .where(UserSession.revoked_at.is_(None))
+            )
+            if session and not is_expired(session.expires_at):
+                return session.user
+
+    return None
 
 
 async def chat_socket(websocket: WebSocket) -> None:

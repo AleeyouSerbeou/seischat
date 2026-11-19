@@ -43,11 +43,23 @@ def require_csrf(request: Request) -> None:
     settings = get_settings()
     cookie_token = request.cookies.get(settings.csrf_cookie_name)
     header_token = request.headers.get("X-CSRF-Token")
-    if not cookie_token or not header_token:
+    if not header_token:
         raise HTTPException(status_code=403, detail="csrf_failed")
-    if len(cookie_token) != len(header_token):
-        raise HTTPException(status_code=403, detail="csrf_failed")
-    import hmac
 
-    if not hmac.compare_digest(cookie_token, header_token):
+    # 1. If cookie was preserved and delivered by the browser, verify double-submit match
+    if cookie_token:
+        import hmac
+
+        if len(cookie_token) != len(header_token) or not hmac.compare_digest(
+            cookie_token, header_token
+        ):
+            raise HTTPException(status_code=403, detail="csrf_failed")
+        return
+
+    # 2. If cookie was dropped by the browser (cross-site third-party cookie restrictions,
+    # e.g., Safari ITP, iOS, Brave, Chrome cross-subdomain restrictions),
+    # verify the cryptographic HMAC signature of the header token issued by /api/auth/csrf.
+    from app.security import is_valid_csrf_token
+
+    if not is_valid_csrf_token(header_token, settings.secret_key):
         raise HTTPException(status_code=403, detail="csrf_failed")

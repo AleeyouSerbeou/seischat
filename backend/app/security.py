@@ -49,5 +49,34 @@ def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def new_csrf_token() -> str:
-    return secrets.token_urlsafe(32)
+def new_csrf_token(secret: str | None = None) -> str:
+    from datetime import datetime, timezone
+    from app.core.config import get_settings
+
+    key = secret or get_settings().secret_key
+    timestamp = str(int(datetime.now(timezone.utc).timestamp()))
+    nonce = secrets.token_hex(16)
+    data = f"{timestamp}.{nonce}"
+    sig = hmac.new(key.encode(), data.encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{data}.{sig}"
+
+
+def is_valid_csrf_token(token: str, secret: str | None = None, max_age_seconds: int = 3600) -> bool:
+    if not token or token.count(".") != 2:
+        return False
+    parts = token.split(".", 2)
+    timestamp_str, nonce, sig = parts
+    try:
+        from datetime import datetime, timezone
+        ts = int(timestamp_str)
+        now = int(datetime.now(timezone.utc).timestamp())
+        if now - ts > max_age_seconds or ts > now + 300:
+            return False
+    except ValueError:
+        return False
+
+    from app.core.config import get_settings
+    key = secret or get_settings().secret_key
+    data = f"{timestamp_str}.{nonce}"
+    expected = hmac.new(key.encode(), data.encode(), hashlib.sha256).hexdigest()[:32]
+    return hmac.compare_digest(sig, expected)

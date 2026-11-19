@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +10,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables or .env."""
 
     port: int = 8000
+    secret_key: str = "seischat-secret-key-change-in-production"
     database_url: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/seischat"
     )
@@ -18,6 +20,21 @@ class Settings(BaseSettings):
     csrf_cookie_name: str = "seischat_csrf"
     session_ttl_minutes: int = 60
     csrf_secure: bool = False
+
+    @model_validator(mode="after")
+    def validate_production_secret(self) -> "Settings":
+        if self.app_environment == "production":
+            insecure_defaults = {
+                "",
+                "replace-with-a-local-secret",
+                "seischat-secret-key-change-in-production",
+                "change-me",
+            }
+            if self.secret_key in insecure_defaults or len(self.secret_key) < 32:
+                raise ValueError(
+                    "In production, SECRET_KEY must be a secure random string of at least 32 characters."
+                )
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",
