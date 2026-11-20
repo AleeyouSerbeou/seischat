@@ -67,7 +67,7 @@ function MessageList({
     return (
       <section
         aria-label="Chat history"
-        className="flex min-h-0 flex-grow flex-col items-center justify-center bg-zinc-950 px-4 text-zinc-500"
+        className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-zinc-950 px-4 text-zinc-500"
       >
         <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-600">
           💬
@@ -83,7 +83,7 @@ function MessageList({
   return (
     <section
       aria-label="Chat history"
-      className="min-h-0 flex-grow overflow-y-auto bg-zinc-950 px-4 pb-16 pt-6 sm:px-8"
+      className="min-h-0 flex-1 overflow-y-auto bg-zinc-950 px-4 pb-16 pt-6 sm:px-8"
     >
       <div className="space-y-3 text-sm leading-6">
         {messages.map((message) => {

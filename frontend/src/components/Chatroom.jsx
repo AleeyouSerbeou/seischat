@@ -25,7 +25,7 @@ function Chatroom() {
   const [selectedPeer, setSelectedPeer] = useState(null);
 
   return (
-    <div className="relative flex h-screen w-full bg-zinc-950 font-sans text-zinc-300">
+    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-zinc-950 font-sans text-zinc-300 md:flex-row">
       {isSidebarOpen && (
         <button
           type="button"
