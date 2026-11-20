@@ -73,8 +73,7 @@ export function createApiClient({
     requestHeaders.set('Accept', 'application/json')
     const token =
       typeof window !== 'undefined'
-        ? window.sessionStorage?.getItem('seischat_token') ||
-          window.localStorage?.getItem('seischat_token')
+        ? window.sessionStorage?.getItem('seischat_token')
         : null
     if (token && !requestHeaders.has('Authorization')) {
       requestHeaders.set('Authorization', `Bearer ${token}`)
@@ -108,7 +107,6 @@ export function createApiClient({
     if (response.status === 204) {
       if (typeof window !== 'undefined' && path.includes('/logout')) {
         window.sessionStorage?.removeItem('seischat_token')
-        window.localStorage?.removeItem('seischat_token')
       }
       return undefined
     }
@@ -116,7 +114,6 @@ export function createApiClient({
     if (!response.ok) {
       if (typeof window !== 'undefined' && response.status === 401) {
         window.sessionStorage?.removeItem('seischat_token')
-        window.localStorage?.removeItem('seischat_token')
       }
       let payload
       try {
@@ -139,7 +136,6 @@ export function createApiClient({
       const data = await response.json()
       if (typeof window !== 'undefined' && data?.token) {
         window.sessionStorage?.setItem('seischat_token', data.token)
-        window.localStorage?.setItem('seischat_token', data.token)
       }
       return data
     } catch (cause) {
