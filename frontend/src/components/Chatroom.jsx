@@ -50,6 +50,7 @@ function Chatroom() {
               setSelectedPeer(peer);
               setIsSidebarOpen(false);
             }}
+            onLogout={logout}
           />
         )}
       </aside>
