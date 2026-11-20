@@ -22,19 +22,33 @@ def get_current_user(
     request: Request, db: Session = Depends(get_db)
 ) -> User:
     settings = get_settings()
+    session = None
+
+    # 1. Primary: HttpOnly session cookie
     raw_token = request.cookies.get(settings.session_cookie_name)
-    if not raw_token:
+    if raw_token:
+        session = db.scalar(
+            select(UserSession)
+            .where(UserSession.token_hash == token_hash(raw_token))
+            .where(UserSession.revoked_at.is_(None))
+        )
+        if session and is_expired(session.expires_at):
+            session = None
+
+    # 2. Secondary fallback: Authorization: Bearer token (for cross-site subdomains, mobile, or if cookie was invalid)
+    if not session:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
-            raw_token = auth_header[7:].strip()
-    if not raw_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthenticated")
-    session = db.scalar(
-        select(UserSession)
-        .where(UserSession.token_hash == token_hash(raw_token))
-        .where(UserSession.revoked_at.is_(None))
-    )
-    if not session or is_expired(session.expires_at):
+            bearer_token = auth_header[7:].strip()
+            session = db.scalar(
+                select(UserSession)
+                .where(UserSession.token_hash == token_hash(bearer_token))
+                .where(UserSession.revoked_at.is_(None))
+            )
+            if session and is_expired(session.expires_at):
+                session = None
+
+    if not session:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthenticated")
     return session.user
 
@@ -47,18 +61,14 @@ def require_csrf(request: Request) -> None:
         raise HTTPException(status_code=403, detail="csrf_failed")
 
     # 1. If cookie was preserved and delivered by the browser, verify double-submit match
-    if cookie_token:
+    if cookie_token and len(cookie_token) == len(header_token):
         import hmac
 
-        if len(cookie_token) != len(header_token) or not hmac.compare_digest(
-            cookie_token, header_token
-        ):
-            raise HTTPException(status_code=403, detail="csrf_failed")
-        return
+        if hmac.compare_digest(cookie_token, header_token):
+            return
 
-    # 2. If cookie was dropped by the browser (cross-site third-party cookie restrictions,
-    # e.g., Safari ITP, iOS, Brave, Chrome cross-subdomain restrictions),
-    # verify the cryptographic HMAC signature of the header token issued by /api/auth/csrf.
+    # 2. If cookie was dropped or overwritten (e.g., cross-site subdomain, Safari ITP,
+    # or cookie collision), verify the cryptographic HMAC signature of the header token.
     from app.security import is_valid_csrf_token
 
     if not is_valid_csrf_token(header_token, settings.secret_key):

@@ -124,16 +124,23 @@ def logout(
     db: Session = Depends(get_db),
 ) -> None:
     settings = get_settings()
+    session = None
     raw_token = request.cookies.get(settings.session_cookie_name)
-    if not raw_token:
+    if raw_token:
+        session = db.scalar(
+            select(UserSession).where(UserSession.user_id == user.id).where(
+                UserSession.token_hash == token_hash(raw_token)
+            )
+        )
+    if not session:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             raw_token = auth_header[7:].strip()
-    session = db.scalar(
-        select(UserSession).where(UserSession.user_id == user.id).where(
-            UserSession.token_hash == token_hash(raw_token or "")
-        )
-    )
+            session = db.scalar(
+                select(UserSession).where(UserSession.user_id == user.id).where(
+                    UserSession.token_hash == token_hash(raw_token)
+                )
+            )
     if session:
         session.revoked_at = datetime.now(timezone.utc)
         db.commit()

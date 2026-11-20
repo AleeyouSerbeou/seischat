@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     csrf_secure: bool = False
 
     @model_validator(mode="after")
+    def validate_cookie_names(self) -> "Settings":
+        if (
+            self.session_cookie_name == self.csrf_cookie_name
+            or self.session_cookie_name == "seischat_csrf"
+        ):
+            self.session_cookie_name = "seischat_session"
+        return self
+
+    @model_validator(mode="after")
     def validate_production_secret(self) -> "Settings":
         if self.app_environment == "production":
             insecure_defaults = {

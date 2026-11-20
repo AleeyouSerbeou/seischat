@@ -126,6 +126,51 @@ def test_production_cross_site_safari_scenario_without_cookies(client: TestClien
     assert del_res.status_code == 204
 
 
+def test_invalid_or_colliding_cookie_falls_back_to_bearer_header(client: TestClient) -> None:
+    """When a stale or collided cookie is present, get_current_user must fall back to Bearer token."""
+    csrf_res = client.get("/api/auth/csrf")
+    csrf_token = csrf_res.json()["csrf_token"]
+
+    reg_res = client.post(
+        "/api/auth/register",
+        json={"username": "cookie_test_user", "password": "password123"},
+        headers={"X-CSRF-Token": csrf_token},
+    )
+    assert reg_res.status_code == 201
+
+    login_res = client.post(
+        "/api/auth/login",
+        json={"username": "cookie_test_user", "password": "password123"},
+        headers={"X-CSRF-Token": csrf_token},
+    )
+    assert login_res.status_code == 200
+    token = login_res.json()["token"]
+
+    # Deliberately pollute the session cookie with an invalid value (e.g. CSRF token or stale token)
+    client.cookies.set("seischat_session", "invalid_or_collided_cookie_value")
+
+    # /api/auth/me should fall back to Bearer and succeed
+    me_res = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_res.status_code == 200
+    assert me_res.json()["user"]["username"] == "cookie_test_user"
+
+    # ws-ticket endpoint should also fall back to Bearer and succeed
+    csrf_res2 = client.get("/api/auth/csrf")
+    csrf_token2 = csrf_res2.json()["csrf_token"]
+    ticket_res = client.post(
+        "/api/auth/ws-ticket",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-CSRF-Token": csrf_token2,
+        },
+    )
+    assert ticket_res.status_code == 200
+    assert "ticket" in ticket_res.json()
+
+
 def test_cors_configuration(client: TestClient) -> None:
     """Test CORS preflight and headers for production and local origins."""
     for origin in [
